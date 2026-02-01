@@ -26,4 +26,11 @@ public class OrderResource {
 
         return Response.ok(createdOrder).build();
     }
+
+    @POST
+    @Path("/async")
+    public Response createOrderAsync(OrderRequestDTO dto) {
+        Order createdOrder = service.processOrderAsync(dto);
+        return Response.accepted(createdOrder).build();
+    }
 }
