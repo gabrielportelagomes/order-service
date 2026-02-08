@@ -56,11 +56,11 @@ public class OrderService {
     public Order processOrderSync(OrderRequestDTO dto) {
         LOG.info("Processamento SÍNCRONO iniciado");
 
-        Order order = criarPedidoInicial(dto);
+        Order order = createInitialOrder(dto);
 
         try {
-            reservarEstoque(dto.productId());
-            processarPagamento(order.getId(), dto);
+            reserveStock(dto.productId());
+            processPayment(order.getId(), dto);
 
             order.setStatus(OrderStatus.CONFIRMED);
 
@@ -71,7 +71,7 @@ public class OrderService {
         } catch (PaymentException e) {
             LOG.error("Falha no pagamento, iniciando compensação...", e);
             order.setStatus(OrderStatus.FAILED_PAYMENT);
-            compensarEstoque(dto.productId());
+            compensateStock(dto.productId());
 
         } catch (IntegrationException e) {
             LOG.error("Erro de integração externa", e);
@@ -126,7 +126,7 @@ public class OrderService {
         return order;
     }
 
-    private Order criarPedidoInicial(OrderRequestDTO dto) {
+    private Order createInitialOrder(OrderRequestDTO dto) {
         Order order = new Order();
         order.setCustomerId(dto.customerId());
         order.setTotalAmount(dto.amount());
@@ -137,7 +137,7 @@ public class OrderService {
     }
 
 
-    private void reservarEstoque(Long productId) {
+    private void reserveStock(Long productId) {
         try {
             inventoryClient.reserveStock(new InventoryRequestDTO(productId, 3));
         } catch (WebApplicationException e) {
@@ -148,7 +148,7 @@ public class OrderService {
     }
 
 
-    private void processarPagamento(Long orderId, OrderRequestDTO dto) {
+    private void processPayment(Long orderId, OrderRequestDTO dto) {
         try {
             paymentClient.processPayment(
                     new PaymentRequestDTO(orderId, dto.amount(), dto.customerId())
@@ -161,7 +161,7 @@ public class OrderService {
     }
 
 
-    private void compensarEstoque(Long productId) {
+    private void compensateStock(Long productId) {
         try {
             inventoryClient.cancelReservation(new InventoryRequestDTO(productId, 3));
             LOG.warn("Compensação de estoque executada");
@@ -169,6 +169,4 @@ public class OrderService {
             LOG.fatal("FALHA CRÍTICA NA COMPENSAÇÃO", e);
         }
     }
-
-
 }
