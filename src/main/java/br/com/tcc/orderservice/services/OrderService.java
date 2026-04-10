@@ -59,7 +59,7 @@ public class OrderService {
         Order order = createInitialOrder(dto);
 
         try {
-            reserveStock(dto.productId());
+            reserveStock(dto.productId(), dto.quantity());
             processPayment(order.getId(), dto);
 
             order.setStatus(OrderStatus.CONFIRMED);
@@ -71,7 +71,7 @@ public class OrderService {
         } catch (PaymentException e) {
             LOG.error("Falha no pagamento, iniciando compensação...", e);
             order.setStatus(OrderStatus.FAILED_PAYMENT);
-            compensateStock(dto.productId());
+            compensateStock(dto.productId(), dto.quantity());
 
         } catch (IntegrationException e) {
             LOG.error("Erro de integração externa", e);
@@ -93,7 +93,7 @@ public class OrderService {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 order.getId(),
                 dto.productId(),
-                1,
+                dto.quantity(),
                 dto.customerId(),
                 dto.amount()
         );
@@ -137,9 +137,9 @@ public class OrderService {
     }
 
 
-    private void reserveStock(Long productId) {
+    private void reserveStock(Long productId, Integer quantity) {
         try {
-            inventoryClient.reserveStock(new InventoryRequestDTO(productId, 3));
+            inventoryClient.reserveStock(new InventoryRequestDTO(productId, quantity));
         } catch (WebApplicationException e) {
             throw new InventoryException("Estoque insuficiente ou erro HTTP", e);
         } catch (ProcessingException e) {
@@ -161,9 +161,9 @@ public class OrderService {
     }
 
 
-    private void compensateStock(Long productId) {
+    private void compensateStock(Long productId, Integer quantity) {
         try {
-            inventoryClient.cancelReservation(new InventoryRequestDTO(productId, 3));
+            inventoryClient.cancelReservation(new InventoryRequestDTO(productId, quantity));
             LOG.warn("Compensação de estoque executada");
         } catch (Exception e) {
             LOG.fatal("FALHA CRÍTICA NA COMPENSAÇÃO", e);
